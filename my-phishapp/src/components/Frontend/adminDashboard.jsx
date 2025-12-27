@@ -9,28 +9,21 @@ function AdminDashboard() {
     const [showSuccess, setShowSuccess] = useState(false);
     const [reports, setReports] = useState([]);
     const [activeTab, setActiveTab] = useState("create");
-    const [uploadFile, setUploadFile] = useState(null);
-    const [breachCount, setBreachCount] = useState(0);
-    const [numberOfEmails, setNumberOfEmails] = useState(""); // New state for number of emails
 
-    useEffect(() => {
-        // Get breach count from localStorage on mount
-        setBreachCount(Number(localStorage.getItem("breachCount") || 0));
-    }, [showSuccess]); // update when a campaign is launched
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const formData = new FormData();
-        formData.append("campaign_name", campaignName);
-        formData.append("email_template", emailTemplate);
-        formData.append("target_group", targetGroup);
-        formData.append("file", uploadFile);
-        formData.append("number_of_emails", numberOfEmails);
-
         try {
-            const response = await fetch('http://localhost:5000/api/save_campaign', {
-                method: 'POST',
-                body: formData
+            const response = await fetch("http://localhost:5000/api/save_campaign", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    campaign_name: campaignName,
+                    email_template: emailTemplate,
+                    target_group: targetGroup
+                })
             });
 
             const result = await response.json();
@@ -39,28 +32,10 @@ function AdminDashboard() {
                 const link = window.location.origin + "/feedback";
                 setSuccessLink(link);
                 setShowSuccess(true);
-
-                const detectedEmails = result.emailCount || numberOfEmails;
-                setReports(prev => [
-                    ...prev,
-                    {
-                        campaign_name: campaignName,
-                        sent_date: new Date().toLocaleDateString(),
-                        emails_sent: detectedEmails,
-                        clicked_link: breachCount,
-                        vulnerability_rate:
-                            detectedEmails && Number(detectedEmails) > 0
-                                ? ((breachCount / Number(detectedEmails)) * 100).toFixed(1) + "%"
-                                : "--"
-                    }
-                ]);
-
                 // Optionally reset form
                 setCampaignName("");
                 setEmailTemplate("Password Expiry Notification");
                 setTargetGroup("All Employees");
-                setUploadFile(null);
-                setNumberOfEmails(""); // Reset number of emails
             } else {
                 alert('Error: ' + result.message);
             }
@@ -69,6 +44,25 @@ function AdminDashboard() {
             alert('Failed to connect to the server.');
         }
     };
+
+    useEffect(() => {
+        if (activeTab === "reports") {
+            fetchReports();
+        }
+    }, [activeTab]);
+
+    const fetchReports = async () => {
+        try {
+            const response = await fetch("http://localhost:5000/api/reports");
+            const data = await response.json();
+            console.log(data);
+            setReports(data);
+        } catch (error) {
+            console.error("Failed to fetch reports:", error);
+        }
+    };
+
+
 
     return (
         <>
@@ -142,16 +136,6 @@ function AdminDashboard() {
                                         <option>IT Dept</option>
                                     </select>
                                 </div>
-                                <div className="mb-3">
-                                    <label className="form-label">Upload PDF or Excel</label>
-                                    <input
-                                        type="file"
-                                        accept="application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                                        className="form-control"
-                                        onChange={e => setUploadFile(e.target.files[0])}
-                                        required
-                                    />
-                                </div>
                                 <button type="submit" className="btn btn-success">Launch Campaign</button>
                             </form>
                             {showSuccess && (
@@ -169,22 +153,19 @@ function AdminDashboard() {
                                 <thead>
                                     <tr>
                                         <th>Campaign Name</th>
+                                        <th>email_template</th>
+                                        <th>target_group</th>
                                         <th>Sent Date</th>
-                                        <th>Clicked Link</th>
-                                        <th>Vulnerability Rate</th>
+
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {reports.map((report, idx) => (
                                         <tr key={idx}>
                                             <td>{report.campaign_name}</td>
+                                            <td>{report.email_template}</td>
+                                            <td>{report.target_group}</td>
                                             <td>{report.sent_date}</td>
-                                            <td>{breachCount}</td>
-                                            <td>
-                                                {report.emails_sent !== "--" && report.emails_sent > 0
-                                                    ? ((breachCount / report.emails_sent) * 100).toFixed(1) + "%"
-                                                    : "--"}
-                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
