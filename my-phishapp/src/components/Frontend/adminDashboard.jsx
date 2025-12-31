@@ -9,8 +9,12 @@ function AdminDashboard() {
     const [showSuccess, setShowSuccess] = useState(false);
     const [reports, setReports] = useState([]);
     const [activeTab, setActiveTab] = useState("create");
+    const [sendMode, setSendMode] = useState("Email"); // New state for send mode
+    const [recipients, setRecipients] = useState([]);
+    const [recipientInput, setRecipientInput] = useState("");
 
 
+    // Handle campaign creation form submission
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
@@ -42,6 +46,57 @@ function AdminDashboard() {
         } catch (error) {
             console.error('Error:', error);
             alert('Failed to connect to the server.');
+        }
+    };
+
+    // Handle adding a recipient
+    const handleAddRecipient = (e) => {
+        e.preventDefault();
+        if (recipientInput.trim() && !recipients.includes(recipientInput.trim())) {
+            setRecipients([...recipients, recipientInput.trim()]);
+            setRecipientInput("");
+        }
+    };
+
+    // Handle removing a recipient
+    const handleRemoveRecipient = (index) => {
+        setRecipients(recipients.filter((_, i) => i !== index));
+    };
+
+    // Handle sending campaign
+    const handleSendCampaign = async (e) => {
+        e.preventDefault();
+        if (recipients.length === 0) {
+            alert("Please add at least one recipient.");
+            return;
+        }
+        if (!successLink.trim()) {
+            alert("Please enter a link to send.");
+            return;
+        }
+        try {
+            const response = await fetch("http://localhost:5000/api/send_campaign", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    mode: sendMode,
+                    recipients: recipients,
+                    link: successLink.trim()
+                })
+            });
+            const result = await response.json();
+            if (response.ok) {
+                alert("Campaign link sent successfully to all recipients!");
+                setRecipients([]);
+                setSuccessLink("");
+            } else {
+                alert("Error: " + (result.message || "Failed to send."));
+            }
+        } catch (error) {
+            console.error("Error:", error);
+            alert("Failed to send campaign.");
         }
     };
 
@@ -93,6 +148,15 @@ function AdminDashboard() {
                             onClick={() => setActiveTab("reports")}
                         >
                             Awareness Reports
+                        </button>
+                    </li>
+                    <li className="nav-item" role="presentation">
+                        <button
+                            className={`nav-link${activeTab === "send" ? " active" : ""}`}
+                            type="button"
+                            onClick={() => setActiveTab("send")}
+                        >
+                            Send Campaign
                         </button>
                     </li>
                 </ul>
@@ -170,6 +234,74 @@ function AdminDashboard() {
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+                    )}
+
+                    {activeTab === "send" && (
+                        <div className="tab-pane fade show active" id="send" role="tabpanel">
+                            <h4>Send Campaign</h4>
+                            <form className="mt-3" onSubmit={handleSendCampaign}>
+                                <div className="mb-3">
+                                    <label className="form-label">Mode to Send</label>
+                                    <select
+                                        className="form-select"
+                                        value={sendMode}
+                                        onChange={e => setSendMode(e.target.value)}
+                                    >
+                                        <option value="Email">Emails</option>
+                                        <option value="sms">Mobile</option>
+                                    </select>
+                                </div>
+                                <div className="mb-3">
+                                    <label className="form-label">Link to Send</label>
+                                    <input
+                                        type="url"
+                                        className="form-control"
+                                        placeholder="Enter the link to send"
+                                        value={successLink}
+                                        required
+                                    />
+                                </div>
+                                {/* Recipients Section */}
+                                <div className="mb-3">
+                                    <label className="form-label">
+                                        Add {sendMode === "sms" ? "Phone Numbers" : "Emails"}
+                                    </label>
+                                    <div className="input-group mb-2">
+                                        <input
+                                            type={sendMode === "sms" ? "tel" : "email"}
+                                            className="form-control"
+                                            placeholder={sendMode === "sms" ? "Enter phone number" : "Enter email"}
+                                            value={recipientInput}
+                                            onChange={e => setRecipientInput(e.target.value)}
+                                        />
+                                        <button
+                                            className="btn btn-outline-secondary"
+                                            type="button"
+                                            onClick={handleAddRecipient}
+                                        >
+                                            Add
+                                        </button>
+                                    </div>
+                                    {recipients.length > 0 && (
+                                        <ul className="list-group">
+                                            {recipients.map((rec, idx) => (
+                                                <li key={idx} className="list-group-item d-flex justify-content-between align-items-center">
+                                                    {rec}
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-sm btn-danger"
+                                                        onClick={() => handleRemoveRecipient(idx)}
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                                <button type="submit" className="btn btn-primary">Send Campaign</button>
+                            </form>
                         </div>
                     )}
                 </div>
